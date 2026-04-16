@@ -2,7 +2,7 @@ const { Telegraf, Markup } = require("telegraf");
 const express = require("express");
 
 // ===== SETTINGS =====
-const BOT_TOKEN = "8783194867:AAF4a8tAkN07v9t0o5ewB_CbRsZBDBNaKJw";
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = 7510750214;
 const BOT_USERNAME = "primevestglobal_bot";
 const CHANNEL = "@starfordfreenumbers";
@@ -13,7 +13,8 @@ const bot = new Telegraf(BOT_TOKEN);
 // ===== SERVER =====
 const app = express();
 app.get("/", (req, res) => res.send("Bot Running"));
-app.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running on " + PORT));
 
 // ===== DATABASE =====
 let users = {};
