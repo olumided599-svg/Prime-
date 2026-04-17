@@ -1,6 +1,11 @@
+
+require("dotenv").config();
+const { Telegraf, Markup } = require("telegraf");
 const fs = require("fs");
 
-// Load users from file
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// Load users
 let users = {};
 try {
   users = JSON.parse(fs.readFileSync("users.json"));
@@ -8,7 +13,6 @@ try {
   users = {};
 }
 
-// Save function
 function saveUsers() {
   fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
 }
