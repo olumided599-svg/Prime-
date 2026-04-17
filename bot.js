@@ -1,4 +1,4 @@
-
+u
 const { Telegraf, Markup } = require("telegraf");
 
 // ===== CONFIG =====
@@ -289,3 +289,11 @@ bot.launch();
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+bot.launch();
+
+console.log("🚀 BOT LIVE ON RENDER");
+
+// Prevent crash
+process.on('uncaughtException', console.error);
+process.on('unhandledRejection', console.error);
