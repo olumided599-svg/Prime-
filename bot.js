@@ -302,3 +302,18 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (err) => {
   console.error("UNHANDLED PROMISE:", err);
 });
+
+// ===== START BOT PROPERLY =====
+
+// Catch errors (VERY IMPORTANT)
+process.on('uncaughtException', (err) => console.log(err));
+process.on('unhandledRejection', (err) => console.log(err));
+
+// Start bot (ONLY ONCE)
+bot.launch().then(() => {
+    console.log("🚀 Bot is running...");
+});
+
+// Graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
