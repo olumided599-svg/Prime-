@@ -1,3 +1,4 @@
+console.log("BOT STARTING...");
 require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 const fs = require("fs");
@@ -219,3 +220,11 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server running"));
+
+process.on("uncaughtException", (err) => {
+  console.log("CRASH ERROR:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.log("PROMISE ERROR:", err);
+});
