@@ -272,12 +272,6 @@ bot.action(/approveW_(.+)/, (ctx) => {
 // ===== REJECT =====
 bot.action(/reject/, (ctx) => ctx.editMessageText("❌ Rejected"));
 
-// ===== START =====
-bot.launch({
-  polling: {
-    timeout: 30
-  }
-});
 
 bot.catch((err) => console.log(err));
 console.log("🚀 BOT RUNNING");
@@ -301,3 +295,19 @@ process.on('unhandledRejection', console.error);
 bot.launch();
 
 console.log("🚀 BOT STARTED");
+
+const express = require("express");
+const app = express();
+
+app.use(bot.webhookCallback("/bot"));
+
+bot.telegram.setWebhook(process.env.WEBHOOK_URL + "/bot");
+
+app.get("/", (req, res) => {
+  res.send("Bot is running 🚀");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🚀 Server running on port " + PORT);
+});
