@@ -1,12 +1,12 @@
 {
   "name": "prime-vest-bot",
   "version": "1.0.0",
-  "description": "Investment Telegram Bot",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "telegraf": "^4.12.2"
+    "telegraf": "^4.12.2",
+    "express": "^4.18.2"
   }
 }
