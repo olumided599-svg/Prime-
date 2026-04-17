@@ -63,7 +63,7 @@ bot.action("verify", async (ctx) => {
   let joined = await isJoined(ctx);
   if (!joined) return ctx.answerCbQuery("❌ Join first");
 
-  await ctx.answerCbQuery("✅ Verified");
+   ctx.answerCbQuery("✅ Verified");
   showMenu(ctx);
 });
 
@@ -198,7 +198,7 @@ if (userMode[id] === "withdraw_amount") {
   pendingWithdrawals[id] = amt;
   userMode[id] = null;
 
-  await ctx.telegram.sendMessage(
+  ctx.telegram.sendMessage(
     ADMIN_ID,
     `📤 Withdrawal\nUser: ${id}\nAmount: ₦${amt}\nBank: ${user.bank}`,
     {
@@ -224,7 +224,7 @@ bot.on("photo", async (ctx) => {
 
   let amt = pendingDeposits[id];
 
-  await ctx.telegram.sendPhoto(
+  ctx.telegram.sendPhoto(
     ADMIN_ID,
     ctx.message.photo.pop().file_id,
     {
@@ -285,4 +285,7 @@ console.log("🚀 BOT RUNNING");
 bot.catch((err) => {
   console.log("❌ Bot Error:", err.message);
 });
-          
+bot.launch();
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
