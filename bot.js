@@ -231,23 +231,36 @@ bot.action(/approve_wd_(.+)/, (ctx) => {
 // ===== REJECT =====
 bot.action(/reject_(.+)/, (ctx) => {
   ctx.editMessageText("❌ Rejected");
-});
-
-// ===== RENDER SERVER =====
+// ===== EXPRESS SERVER FOR RENDER =====
+const express = require("express");
 const app = express();
 
+// Webhook route
 app.use(bot.webhookCallback("/bot"));
-bot.telegram.setWebhook(process.env.WEBHOOK_URL);
 
+// Set webhook
+bot.telegram.setWebhook(process.env.WEBHOOK_URL + "/bot");
+
+// Test route
 app.get("/", (req, res) => {
-  res.send("🚀 Bot is Live");
+  res.send("🚀 Prime Vest Bot is LIVE");
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 Server running...");
+  console.log("🚀 Server running on port " + PORT);
 });
 
 // ===== ERROR HANDLING =====
-process.on("uncaughtException", console.error);
-process.on("unhandledRejection", console.error);
+process.on('uncaughtException', (err) => {
+  console.error("UNCAUGHT ERROR:", err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error("UNHANDLED PROMISE:", err);
+});
+
+// ===== STOP HANDLER =====
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
