@@ -1,11 +1,12 @@
-
 require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 const fs = require("fs");
+const express = require("express");
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
+const app = express();
 
-// Load users
+// ===== LOAD USERS =====
 let users = {};
 try {
   users = JSON.parse(fs.readFileSync("users.json"));
@@ -17,13 +18,7 @@ function saveUsers() {
   fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
 }
 
-const { Telegraf, Markup } = require("telegraf");
-require("dotenv").config();
-
-const bot = new Telegraf(process.env.BOT_TOKEN);
-
 // ===== DATA =====
-let users = {};
 let pendingDeposits = {};
 let pendingWithdrawals = {};
 let userState = {};
@@ -36,7 +31,7 @@ const BANK_NAME = "Moniepoint MFB";
 const ACCOUNT_NUMBER = "5075903950";
 const ACCOUNT_NAME = "Kamsi Chosen Oragwam";
 
-// ===== MAIN MENU =====
+// ===== MENU =====
 function mainMenu() {
   return Markup.keyboard([
     ["💰 Invest", "💳 Deposit"],
@@ -51,6 +46,7 @@ bot.start((ctx) => {
 
   if (!users[id]) {
     users[id] = { balance: 0, invested: 0 };
+    saveUsers();
   }
 
   ctx.reply("🏠 MAIN MENU", mainMenu());
@@ -97,25 +93,22 @@ bot.hears(/₦\d+/, (ctx) => {
   const id = ctx.from.id;
   const amt = parseInt(ctx.message.text.replace("₦", ""));
 
-  // ===== DEPOSIT =====
   if (userState[id] === "deposit") {
     pendingDeposits[id] = { amount: amt };
 
-    ctx.reply(
-`💳 Pay ₦${amt} to:
+    ctx.reply(`💳 Pay ₦${amt} to:
 
-🏦 Bank: ${BANK_NAME}
-👤 Name: ${ACCOUNT_NAME}
-🔢 Account: ${ACCOUNT_NUMBER}
+🏦 ${BANK_NAME}
+👤 ${ACCOUNT_NAME}
+🔢 ${ACCOUNT_NUMBER}
 
-After payment, wait for admin approval ⏳`
-    );
+⏳ Wait for approval`);
 
     bot.telegram.sendMessage(ADMIN_ID,
-`💰 New Deposit Request
+`💰 Deposit Request
 
-👤 User: ${id}
-💵 Amount: ₦${amt}`,
+User: ${id}
+Amount: ₦${amt}`,
       Markup.inlineKeyboard([
         [Markup.button.callback("✅ Approve", `approve_deposit_${id}`)],
         [Markup.button.callback("❌ Reject", `reject_deposit_${id}`)]
@@ -125,7 +118,6 @@ After payment, wait for admin approval ⏳`
     userState[id] = null;
   }
 
-  // ===== INVEST =====
   else if (userState[id] === "invest") {
 
     if (users[id].balance < amt) {
@@ -133,7 +125,6 @@ After payment, wait for admin approval ⏳`
     }
 
     users[id].balance -= amt;
-    saveUsers();
     users[id].invested += amt;
     saveUsers();
 
@@ -154,43 +145,35 @@ bot.action(/approve_deposit_(\d+)/, (ctx) => {
   const bonus = 500;
 
   users[id].balance += data.amount + bonus;
+  saveUsers();
 
   delete pendingDeposits[id];
 
   ctx.telegram.sendMessage(id,
-`✅ Deposit Approved!
+`✅ Deposit Approved
 
-💰 Amount: ₦${data.amount}
-🎁 Bonus: ₦${bonus}
+Amount: ₦${data.amount}
+Bonus: ₦${bonus}
 
-💳 New Balance: ₦${users[id].balance}`
-  );
+Balance: ₦${users[id].balance}`);
 
-  ctx.editMessageText("✅ Deposit Approved");
-});
-
-// ===== REJECT DEPOSIT =====
-bot.action(/reject_deposit_/, (ctx) => {
-  ctx.editMessageText("❌ Deposit Rejected");
+  ctx.editMessageText("✅ Approved");
 });
 
 // ===== WITHDRAW =====
 bot.hears("🏧 Withdraw", (ctx) => {
   const id = ctx.from.id;
 
-  // ❌ MUST INVEST FIRST
   if (!users[id] || users[id].invested <= 0) {
     return ctx.reply("❌ You must invest before withdrawing");
   }
 
-  // ❌ MUST HAVE BALANCE
   if (users[id].balance < 500) {
     return ctx.reply("❌ Minimum withdrawal is ₦500");
   }
 
   userState[id] = "withdraw_details";
-
-  ctx.reply("🏦 Send:\nName - Bank - Account Number\n\n⬅️ Back");
+  ctx.reply("Send: Name - Bank - Account Number");
 });
 
 // ===== HANDLE WITHDRAW =====
@@ -200,15 +183,11 @@ bot.on("text", (ctx) => {
   if (userState[id] === "withdraw_details") {
     pendingWithdrawals[id] = { details: ctx.message.text };
     userState[id] = "withdraw_amount";
-    return ctx.reply("💰 Enter amount:");
+    return ctx.reply("Enter amount:");
   }
 
   if (userState[id] === "withdraw_amount") {
     const amt = parseInt(ctx.message.text);
-
-    if (isNaN(amt) || amt < 500) {
-      return ctx.reply("❌ Minimum withdrawal is ₦500");
-    }
 
     if (users[id].balance < amt) {
       return ctx.reply("❌ Insufficient balance");
@@ -217,84 +196,26 @@ bot.on("text", (ctx) => {
     pendingWithdrawals[id].amount = amt;
 
     bot.telegram.sendMessage(ADMIN_ID,
-`🏧 Withdrawal Request
+`Withdrawal Request
 
-👤 User: ${id}
-💵 Amount: ₦${amt}
+User: ${id}
+Amount: ₦${amt}
 
-📋 Details:
-${pendingWithdrawals[id].details}`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback("✅ Approve", `approve_withdraw_${id}`)],
-        [Markup.button.callback("❌ Reject", `reject_withdraw_${id}`)]
-      ])
-    );
+${pendingWithdrawals[id].details}`);
 
     ctx.reply("⏳ Awaiting approval...");
     userState[id] = null;
   }
 });
 
-// ===== APPROVE WITHDRAW =====
-bot.action(/approve_withdraw_(\d+)/, (ctx) => {
-  const id = ctx.match[1];
-  const data = pendingWithdrawals[id];
-
-  if (!data) return;
-
-  users[id].balance -= data.amount;
-
-  delete pendingWithdrawals[id];
-
-  ctx.telegram.sendMessage(id, "✅ Withdrawal Approved");
-  ctx.editMessageText("✅ Approved");
-});
-
-// ===== REJECT WITHDRAW =====
-bot.action(/reject_withdraw_/, (ctx) => {
-  ctx.editMessageText("❌ Rejected");
-});
-
-// ===== BALANCE =====
-bot.hears("💼 Balance", (ctx) => {
-  const id = ctx.from.id;
-
-  if (!users[id]) users[id] = { balance: 0, invested: 0 };
-
-  ctx.reply(
-`💼 ACCOUNT DETAILS
-
-💳 Balance: ₦${users[id].balance}
-📈 Invested: ₦${users[id].invested}`
-  );
-});
-
-// ===== REFERRAL =====
-bot.hears("👥 Referral", (ctx) => {
-  const id = ctx.from.id;
-
-  ctx.reply(
-`👥 Earn 18% referral bonus
-
-https://t.me/${ctx.botInfo.username}?start=${id}`
-  );
-});
-
-// ===== EXPRESS SERVER =====
-const express = require("express");
-const app = express();
-
+// ===== SERVER =====
 app.use(bot.webhookCallback("/bot"));
 
 bot.telegram.setWebhook(process.env.WEBHOOK_URL);
 
 app.get("/", (req, res) => {
-  res.send("🚀 Prime Vest Bot is LIVE");
+  res.send("Bot running");
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running on " + PORT));
-
-// ===== ERROR HANDLING =====
-process.on("uncaughtException", console.error);
-process.on("unhandledRejection", console.error);
+app.listen(PORT, () => console.log("Server running"));
