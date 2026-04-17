@@ -1,17 +1,14 @@
-
 const { Telegraf, Markup } = require("telegraf");
+const express = require("express");
 
 // ===== CONFIG =====
-const BOT_TOKEN = process.env.TOKEN;
+const bot = new Telegraf(process.env.TOKEN);
 const ADMIN_ID = Number(process.env.ADMIN_ID);
-const GROUP = "@primevestglobalinvestments";
 
-// BANK
+// ===== BANK DETAILS =====
 const BANK_NAME = "Moniepoint MFB";
 const ACCOUNT_NAME = "Kamsi Chosen Oragwam";
 const ACCOUNT_NUMBER = "5075903950";
-
-const bot = new Telegraf(BOT_TOKEN);
 
 // ===== DATABASE =====
 let users = {};
@@ -25,199 +22,161 @@ function getUser(id) {
     users[id] = {
       balance: 0,
       invested: 0,
-      bank: null
+      bank: null,
+      refBy: null
     };
   }
   return users[id];
 }
 
-// ===== FORCE JOIN =====
-async function isJoined(ctx) {
-  try {
-    let member = await ctx.telegram.getChatMember(GROUP, ctx.from.id);
-    return ["member","administrator","creator"].includes(member.status);
-  } catch {
-    return false;
-  }
-}
-
-// ===== START =====
-bot.start(async (ctx) => {
-  let joined = await isJoined(ctx);
-
-  if (!joined) {
-    return ctx.reply(
-      "🚫 Join group first!",
-      Markup.inlineKeyboard([
-        [Markup.button.url("📢 Join", `https://t.me/${GROUP.replace("@","")}`)],
-        [Markup.button.callback("✅ Verify", "verify")]
-      ])
-    );
-  }
-
-  showMenu(ctx);
-});
-
-// VERIFY
-bot.action("verify", async (ctx) => {
-  let joined = await isJoined(ctx);
-  if (!joined) return ctx.answerCbQuery("❌ Join first");
-
-   ctx.answerCbQuery("✅ Verified");
-  showMenu(ctx);
-});
-
 // ===== MENU =====
-function showMenu(ctx) {
-  userMode[ctx.from.id] = null;
-
-  ctx.reply(
+function mainMenu(ctx) {
+  return ctx.reply(
     "🏠 MAIN MENU",
     Markup.keyboard([
-      ["💼 Invest","💰 Balance"],
-      ["💸 Withdraw","🏦 Deposit"],
+      ["💰 Invest", "💳 Deposit"],
+      ["🏧 Withdraw", "💼 Balance"],
       ["👥 Referral"]
     ]).resize()
   );
 }
 
-// ===== BALANCE =====
-bot.hears("💰 Balance", (ctx) => {
-  let u = getUser(ctx.from.id);
+// ===== START =====
+bot.start((ctx) => {
+  let id = ctx.from.id;
+  getUser(id);
 
-  ctx.reply(
-`💰 Balance: ₦${u.balance}
-💼 Invested: ₦${u.invested}`
-  );
+  return mainMenu(ctx);
 });
 
-// ===== REFERRAL =====
-bot.hears("👥 Referral", (ctx) => {
-  ctx.reply(
-`👥 REFERRAL PROGRAM
-
-Earn 18% of your referral investment 💰
-
-🔗 https://t.me/primevestglobal_bot?start=${ctx.from.id}`
-  );
+// ===== BALANCE =====
+bot.hears("💼 Balance", (ctx) => {
+  let u = getUser(ctx.from.id);
+  ctx.reply(`💰 Balance: ₦${u.balance}\n📊 Invested: ₦${u.invested}`);
 });
 
 // ===== INVEST =====
-bot.hears("💼 Invest", (ctx) => {
-  let u = getUser(ctx.from.id);
+bot.hears("💰 Invest", (ctx) => {
+  userMode[ctx.from.id] = "invest";
 
-  if (u.balance <= 0) {
-    return ctx.reply("❌ You must deposit first");
-  }
-
-  u.invested += u.balance;
-  u.balance = 0;
-
-  ctx.reply("✅ Investment successful");
+  ctx.reply(
+    "💼 Choose investment amount:",
+    Markup.keyboard([
+      ["₦3000", "₦5000"],
+      ["₦10000", "₦20000"],
+      ["₦30000", "₦50000"],
+      ["🔙 Back"]
+    ]).resize()
+  );
 });
 
 // ===== DEPOSIT =====
-bot.hears("🏦 Deposit", (ctx) => {
+bot.hears("💳 Deposit", (ctx) => {
   userMode[ctx.from.id] = "deposit";
 
   ctx.reply(
-    "💰 Choose amount:",
+    "💳 Choose deposit amount:",
     Markup.keyboard([
-      ["₦3000","₦5000"],
-      ["₦10000","₦20000"],
-      ["₦30000","₦50000"],
-      ["⬅️ Back"]
+      ["₦3000", "₦5000"],
+      ["₦10000", "₦20000"],
+      ["₦30000", "₦50000"],
+      ["🔙 Back"]
     ]).resize()
   );
 });
 
 // ===== WITHDRAW =====
-bot.hears("💸 Withdraw", (ctx) => {
-  let u = getUser(ctx.from.id);
+bot.hears("🏧 Withdraw", (ctx) => {
+  let user = getUser(ctx.from.id);
 
-  if (u.invested <= 0) {
+  if (user.invested <= 0) {
     return ctx.reply("❌ You must invest before withdrawing");
   }
 
-  userMode[ctx.from.id] = "withdraw_bank";
+  userMode[ctx.from.id] = "bank";
+  ctx.reply("🏦 Send account details:\nName - Bank - Account Number");
+});
 
-  ctx.reply("🏦 Send account details:\nName - Bank - Account Number\n⬅️ Back");
+// ===== REFERRAL =====
+bot.hears("👥 Referral", (ctx) => {
+  ctx.reply(`👥 Earn 18% of your referral\n\nhttps://t.me/${ctx.botInfo.username}?start=${ctx.from.id}`);
 });
 
 // ===== BACK =====
-bot.hears("⬅️ Back", (ctx) => showMenu(ctx));
+bot.hears("🔙 Back", (ctx) => {
+  userMode[ctx.from.id] = null;
+  return mainMenu(ctx);
+});
 
 // ===== TEXT HANDLER =====
-bot.on("text", async (ctx) => {
+bot.on("text", (ctx) => {
   let id = ctx.from.id;
   let text = ctx.message.text;
   let user = getUser(id);
 
-// ===== DEPOSIT =====
-if (userMode[id] === "deposit") {
-  let amt = parseInt(text.replace("₦",""));
-  if (!amt) return;
+  let amount = parseInt(text.replace(/[^\d]/g, ""));
 
-  pendingDeposits[id] = amt;
-  userMode[id] = "deposit_proof";
+  // ===== INVEST =====
+  if (userMode[id] === "invest" && amount) {
+    if (amount > 50000) return;
 
-  return ctx.reply(
-`🏦 PAY TO:
+    user.balance += amount;
+    user.invested += amount;
+
+    userMode[id] = null;
+    return ctx.reply(`✅ Invested ₦${amount}`);
+  }
+
+  // ===== DEPOSIT =====
+  if (userMode[id] === "deposit" && amount) {
+    pendingDeposits[id] = amount;
+    userMode[id] = "deposit_proof";
+
+    return ctx.reply(
+`🏦 Pay ₦${amount} to:
 
 Bank: ${BANK_NAME}
 Name: ${ACCOUNT_NAME}
-Number: ${ACCOUNT_NUMBER}
+Account: ${ACCOUNT_NUMBER}
 
-📸 Send screenshot after paying ₦${amt}`
-  );
-}
-
-// ===== WITHDRAW BANK =====
-if (userMode[id] === "withdraw_bank") {
-
-  if (!text.includes("-") || text.length < 10) {
-    return ctx.reply("❌ Invalid format\nUse:\nName - Bank - Account Number");
+📸 Send screenshot after payment`
+    );
   }
 
-  user.bank = text;
-  userMode[id] = "withdraw_amount";
+  // ===== BANK =====
+  if (userMode[id] === "bank") {
+    user.bank = text;
+    userMode[id] = "withdraw_amount";
 
-  return ctx.reply("💰 Enter amount you want to withdraw");
-}
-
-// ===== WITHDRAW AMOUNT =====
-if (userMode[id] === "withdraw_amount") {
-  let amt = parseInt(text);
-
-  if (!amt) return;
-
-  if (amt > user.balance) {
-    return ctx.reply("❌ Insufficient balance");
+    return ctx.reply("💸 Enter amount to withdraw:");
   }
 
-  pendingWithdrawals[id] = amt;
-  userMode[id] = null;
+  // ===== WITHDRAW AMOUNT =====
+  if (userMode[id] === "withdraw_amount") {
+    let amt = amount;
 
-  ctx.telegram.sendMessage(
-    ADMIN_ID,
-    `📤 Withdrawal\nUser: ${id}\nAmount: ₦${amt}\nBank: ${user.bank}`,
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          { text: "✅ Approve", callback_data: `approveW_${id}` },
-          { text: "❌ Reject", callback_data: `rejectW_${id}` }
-        ]]
-      }
+    if (amt > user.balance) {
+      return ctx.reply("❌ Insufficient balance");
     }
-  );
 
-  return ctx.reply("⏳ Waiting for admin approval...");
-}
+    pendingWithdrawals[id] = amt;
+    userMode[id] = null;
 
+    ctx.telegram.sendMessage(
+      ADMIN_ID,
+      `📤 Withdrawal\nUser: ${id}\nAmount: ₦${amt}\nBank: ${user.bank}`,
+      Markup.inlineKeyboard([
+        [Markup.button.callback("✅ Approve", `approve_wd_${id}`),
+         Markup.button.callback("❌ Reject", `reject_wd_${id}`)]
+      ])
+    );
+
+    return ctx.reply("⏳ Waiting for admin approval...");
+  }
 });
 
-// ===== SCREENSHOT =====
-bot.on("photo", async (ctx) => {
+// ===== PHOTO (DEPOSIT PROOF) =====
+bot.on("photo", (ctx) => {
   let id = ctx.from.id;
 
   if (!pendingDeposits[id]) return;
@@ -231,8 +190,8 @@ bot.on("photo", async (ctx) => {
       caption: `📥 Deposit\nUser: ${id}\nAmount: ₦${amt}`,
       reply_markup: {
         inline_keyboard: [[
-          { text: "✅ Approve", callback_data: `approveD_${id}` },
-          { text: "❌ Reject", callback_data: `rejectD_${id}` }
+          { text: "✅ Approve", callback_data: `approve_dep_${id}` },
+          { text: "❌ Reject", callback_data: `reject_dep_${id}` }
         ]]
       }
     }
@@ -242,78 +201,53 @@ bot.on("photo", async (ctx) => {
 });
 
 // ===== APPROVE DEPOSIT =====
-bot.action(/approveD_(.+)/, (ctx) => {
+bot.action(/approve_dep_(.+)/, (ctx) => {
   let id = ctx.match[1];
-  let user = getUser(id);
   let amt = pendingDeposits[id];
 
+  let user = getUser(id);
   user.balance += amt;
 
   delete pendingDeposits[id];
 
-  ctx.telegram.sendMessage(id, "✅ Deposit approved");
-  ctx.editMessageText("✅ Approved");
+  ctx.telegram.sendMessage(id, "✅ Deposit approved & added to balance");
+  ctx.editMessageText("✅ Deposit Approved");
 });
 
 // ===== APPROVE WITHDRAW =====
-bot.action(/approveW_(.+)/, (ctx) => {
+bot.action(/approve_wd_(.+)/, (ctx) => {
   let id = ctx.match[1];
-  let user = getUser(id);
   let amt = pendingWithdrawals[id];
 
+  let user = getUser(id);
   user.balance -= amt;
 
   delete pendingWithdrawals[id];
 
   ctx.telegram.sendMessage(id, "✅ Withdrawal approved");
-  ctx.editMessageText("✅ Approved");
+  ctx.editMessageText("✅ Withdrawal Approved");
 });
 
 // ===== REJECT =====
-bot.action(/reject/, (ctx) => ctx.editMessageText("❌ Rejected"));
+bot.action(/reject_(.+)/, (ctx) => {
+  ctx.editMessageText("❌ Rejected");
+});
 
-
-// ===== EXPRESS SERVER FOR RENDER =====
-const express = require("express");
+// ===== RENDER SERVER =====
 const app = express();
 
-// Webhook route
 app.use(bot.webhookCallback("/bot"));
-
-// Set webhook (IMPORTANT)
 bot.telegram.setWebhook(process.env.WEBHOOK_URL);
 
-// Test route (to confirm it's working)
 app.get("/", (req, res) => {
-  res.send("🚀 Prime Vest Bot is LIVE");
+  res.send("🚀 Bot is Live");
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
+  console.log("🚀 Server running...");
 });
 
-// ===== ERROR HANDLING (PREVENT CRASH) =====
-process.on('uncaughtException', (err) => {
-  console.error("UNCAUGHT ERROR:", err);
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error("UNHANDLED PROMISE:", err);
-});
-
-// ===== START BOT PROPERLY =====
-
-// Catch errors (VERY IMPORTANT)
-process.on('uncaughtException', (err) => console.log(err));
-process.on('unhandledRejection', (err) => console.log(err));
-
-// Start bot (ONLY ONCE)
-bot.launch().then(() => {
-    console.log("🚀 Bot is running...");
-});
-
-// Graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// ===== ERROR HANDLING =====
+process.on("uncaughtException", console.error);
+process.on("unhandledRejection", console.error);
