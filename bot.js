@@ -273,41 +273,32 @@ bot.action(/approveW_(.+)/, (ctx) => {
 bot.action(/reject/, (ctx) => ctx.editMessageText("❌ Rejected"));
 
 
-bot.catch((err) => console.log(err));
-console.log("🚀 BOT RUNNING");
-
-bot.catch((err) => {
-  console.log("❌ Bot Error:", err.message);
-});
-bot.launch();
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-bot.launch();
-
-console.log("🚀 BOT LIVE ON RENDER");
-
-// Prevent crash
-process.on('uncaughtException', console.error);
-process.on('unhandledRejection', console.error);
-
-bot.launch();
-
-console.log("🚀 BOT STARTED");
-
+// ===== EXPRESS SERVER FOR RENDER =====
 const express = require("express");
 const app = express();
 
+// Webhook route
 app.use(bot.webhookCallback("/bot"));
 
-bot.telegram.setWebhook(process.env.WEBHOOK_URL + "/bot");
+// Set webhook (IMPORTANT)
+bot.telegram.setWebhook(process.env.WEBHOOK_URL);
 
+// Test route (to confirm it's working)
 app.get("/", (req, res) => {
-  res.send("Bot is running 🚀");
+  res.send("🚀 Prime Vest Bot is LIVE");
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🚀 Server running on port " + PORT);
+});
+
+// ===== ERROR HANDLING (PREVENT CRASH) =====
+process.on('uncaughtException', (err) => {
+  console.error("UNCAUGHT ERROR:", err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error("UNHANDLED PROMISE:", err);
 });
