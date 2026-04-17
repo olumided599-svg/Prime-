@@ -1,3 +1,18 @@
+const fs = require("fs");
+
+// Load users from file
+let users = {};
+try {
+  users = JSON.parse(fs.readFileSync("users.json"));
+} catch {
+  users = {};
+}
+
+// Save function
+function saveUsers() {
+  fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
+}
+
 const { Telegraf, Markup } = require("telegraf");
 require("dotenv").config();
 
