@@ -129,7 +129,9 @@ After payment, wait for admin approval ⏳`
     }
 
     users[id].balance -= amt;
+    saveUsers();
     users[id].invested += amt;
+    saveUsers();
 
     ctx.reply(`✅ Invested ₦${amt}`);
     userState[id] = null;
