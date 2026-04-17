@@ -1,4 +1,4 @@
-u
+
 const { Telegraf, Markup } = require("telegraf");
 
 // ===== CONFIG =====
@@ -297,3 +297,7 @@ console.log("🚀 BOT LIVE ON RENDER");
 // Prevent crash
 process.on('uncaughtException', console.error);
 process.on('unhandledRejection', console.error);
+
+bot.launch();
+
+console.log("🚀 BOT STARTED");
