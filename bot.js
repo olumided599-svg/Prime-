@@ -1,11 +1,11 @@
-console.log("BOT STARTING...");
 require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 const fs = require("fs");
-const express = require("express");
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-const app = express();
+
+// ===== GROUP FORCE JOIN =====
+const GROUP = "@primevestglobalinvestments";
 
 // ===== LOAD USERS =====
 let users = {};
@@ -27,204 +27,441 @@ let userState = {};
 // ===== ADMIN =====
 const ADMIN_ID = 7510750214;
 
-// ===== BANK DETAILS =====
+// ===== BANK =====
 const BANK_NAME = "Moniepoint MFB";
 const ACCOUNT_NUMBER = "5075903950";
 const ACCOUNT_NAME = "Kamsi Chosen Oragwam";
 
+// ===== FORCE JOIN CHECK =====
+async function isJoined(ctx) {
+  try {
+    const member = await ctx.telegram.getChatMember(
+      GROUP,
+      ctx.from.id
+    );
+
+    return ["member","administrator","creator"]
+      .includes(member.status);
+
+  } catch {
+    return false;
+  }
+}
+
 // ===== MENU =====
 function mainMenu() {
   return Markup.keyboard([
-    ["💰 Invest", "💳 Deposit"],
-    ["🏧 Withdraw", "💼 Balance"],
+    ["💰 Invest","💳 Deposit"],
+    ["🏧 Withdraw","💼 Balance"],
     ["👥 Referral"]
   ]).resize();
 }
 
 // ===== START =====
-bot.start((ctx) => {
+bot.start(async (ctx)=>{
+
+  const joined = await isJoined(ctx);
+
+  if (!joined) {
+    return ctx.reply(
+      "🚫 Join our group first before using the bot",
+      Markup.inlineKeyboard([
+        [
+          Markup.button.url(
+            "📢 Join Group",
+            "https://t.me/primevestglobalinvestments"
+          )
+        ],
+        [
+          Markup.button.callback(
+            "✅ Verify",
+            "verify_join"
+          )
+        ]
+      ])
+    );
+  }
+
   const id = ctx.from.id;
 
   if (!users[id]) {
-    users[id] = { balance: 0, invested: 0 };
+    users[id] = {
+      balance:0,
+      invested:0
+    };
     saveUsers();
   }
 
-  ctx.reply("🏠 MAIN MENU", mainMenu());
+  ctx.reply(
+    "🏠 MAIN MENU",
+    mainMenu()
+  );
+
+});
+
+// ===== VERIFY =====
+bot.action("verify_join", async (ctx)=>{
+
+  const joined = await isJoined(ctx);
+
+  if (!joined) {
+    return ctx.answerCbQuery(
+      "❌ You have not joined yet"
+    );
+  }
+
+  await ctx.answerCbQuery(
+    "✅ Verified"
+  );
+
+  const id = ctx.from.id;
+
+  if (!users[id]) {
+    users[id] = {
+      balance:0,
+      invested:0
+    };
+    saveUsers();
+  }
+
+  ctx.reply(
+    "🏠 MAIN MENU",
+    mainMenu()
+  );
+
 });
 
 // ===== BACK =====
-bot.hears("⬅️ Back", (ctx) => {
-  ctx.reply("🏠 MAIN MENU", mainMenu());
+bot.hears("⬅️ Back",(ctx)=>{
+  ctx.reply(
+    "🏠 MAIN MENU",
+    mainMenu()
+  );
 });
 
 // ===== DEPOSIT =====
-bot.hears("💳 Deposit", (ctx) => {
-  const id = ctx.from.id;
-  userState[id] = "deposit";
+bot.hears("💳 Deposit",(ctx)=>{
 
-  ctx.reply("💳 Choose amount:", Markup.keyboard([
-    ["₦3000", "₦5000"],
-    ["₦10000", "₦20000"],
-    ["₦30000", "₦50000"],
-    ["⬅️ Back"]
-  ]).resize());
+  const id = ctx.from.id;
+
+  userState[id]="deposit";
+
+  ctx.reply(
+    "💳 Choose amount:",
+    Markup.keyboard([
+      ["₦3000","₦5000"],
+      ["₦10000","₦20000"],
+      ["₦30000","₦50000"],
+      ["⬅️ Back"]
+    ]).resize()
+  );
+
 });
 
 // ===== INVEST =====
-bot.hears("💰 Invest", (ctx) => {
+bot.hears("💰 Invest",(ctx)=>{
+
   const id = ctx.from.id;
 
-  if (!users[id] || users[id].balance <= 0) {
-    return ctx.reply("❌ You must deposit before investing");
+  if (!users[id] || users[id].balance <=0) {
+    return ctx.reply(
+      "❌ Deposit first before investing"
+    );
   }
 
-  userState[id] = "invest";
+  userState[id]="invest";
 
-  ctx.reply("💼 Choose amount:", Markup.keyboard([
-    ["₦3000", "₦5000"],
-    ["₦10000", "₦20000"],
-    ["₦30000", "₦50000"],
-    ["⬅️ Back"]
-  ]).resize());
+  ctx.reply(
+    "💼 Choose amount:",
+    Markup.keyboard([
+      ["₦3000","₦5000"],
+      ["₦10000","₦20000"],
+      ["₦30000","₦50000"],
+      ["⬅️ Back"]
+    ]).resize()
+  );
+
 });
 
-// ===== HANDLE AMOUNT =====
-bot.hears(/₦\d+/, (ctx) => {
+// ===== HANDLE BUTTON AMOUNTS =====
+bot.hears(/₦\d+/,(ctx)=>{
+
   const id = ctx.from.id;
-  const amt = parseInt(ctx.message.text.replace("₦", ""));
 
-  if (userState[id] === "deposit") {
-    pendingDeposits[id] = { amount: amt };
+  const amt = parseInt(
+    ctx.message.text.replace("₦","")
+  );
 
-    ctx.reply(`💳 Pay ₦${amt} to:
+  // DEPOSIT
+  if (userState[id]==="deposit") {
+
+    pendingDeposits[id]={
+      amount:amt
+    };
+
+    ctx.reply(
+`Pay ₦${amt} to:
 
 🏦 ${BANK_NAME}
 👤 ${ACCOUNT_NAME}
 🔢 ${ACCOUNT_NUMBER}
 
-⏳ Wait for approval`);
+⏳ Wait for admin approval`
+    );
 
-    bot.telegram.sendMessage(ADMIN_ID,
-`💰 Deposit Request
+    bot.telegram.sendMessage(
+      ADMIN_ID,
+`Deposit Request
 
 User: ${id}
 Amount: ₦${amt}`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback("✅ Approve", `approve_deposit_${id}`)],
-        [Markup.button.callback("❌ Reject", `reject_deposit_${id}`)]
-      ])
+Markup.inlineKeyboard([
+[
+Markup.button.callback(
+"✅ Approve",
+`approve_deposit_${id}`
+)
+],
+[
+Markup.button.callback(
+"❌ Reject",
+`reject_deposit_${id}`
+)
+]
+])
     );
 
-    userState[id] = null;
+    userState[id]=null;
   }
 
-  else if (userState[id] === "invest") {
+  // INVEST
+  else if (userState[id]==="invest") {
 
     if (users[id].balance < amt) {
-      return ctx.reply("❌ Insufficient balance");
+      return ctx.reply(
+        "❌ Insufficient balance"
+      );
     }
 
     users[id].balance -= amt;
     users[id].invested += amt;
+
     saveUsers();
 
-    ctx.reply(`✅ Invested ₦${amt}`);
-    userState[id] = null;
+    ctx.reply(
+      `✅ Invested ₦${amt}`
+    );
+
+    userState[id]=null;
   }
+
 });
 
 // ===== APPROVE DEPOSIT =====
-bot.action(/approve_deposit_(\d+)/, (ctx) => {
-  const id = ctx.match[1];
-  const data = pendingDeposits[id];
+bot.action(
+/approve_deposit_(\d+)/,
+(ctx)=>{
 
-  if (!data) return;
+const id = ctx.match[1];
 
-  if (!users[id]) users[id] = { balance: 0, invested: 0 };
+const data = pendingDeposits[id];
 
-  const bonus = 500;
+if(!data) return;
 
-  users[id].balance += data.amount + bonus;
-  saveUsers();
+if(!users[id]){
+users[id]={
+balance:0,
+invested:0
+};
+}
 
-  delete pendingDeposits[id];
+const bonus=500;
 
-  ctx.telegram.sendMessage(id,
+users[id].balance +=
+data.amount + bonus;
+
+saveUsers();
+
+delete pendingDeposits[id];
+
+ctx.telegram.sendMessage(
+id,
 `✅ Deposit Approved
 
 Amount: ₦${data.amount}
 Bonus: ₦${bonus}
 
-Balance: ₦${users[id].balance}`);
+Balance: ₦${users[id].balance}`
+);
 
-  ctx.editMessageText("✅ Approved");
+ctx.editMessageText(
+"✅ Approved"
+);
+
+});
+
+// ===== REJECT =====
+bot.action(
+/reject_deposit_/,
+(ctx)=>{
+ctx.editMessageText(
+"❌ Rejected"
+);
 });
 
 // ===== WITHDRAW =====
-bot.hears("🏧 Withdraw", (ctx) => {
-  const id = ctx.from.id;
+bot.hears(
+"🏧 Withdraw",
+(ctx)=>{
 
-  if (!users[id] || users[id].invested <= 0) {
-    return ctx.reply("❌ You must invest before withdrawing");
-  }
+const id=ctx.from.id;
 
-  if (users[id].balance < 500) {
-    return ctx.reply("❌ Minimum withdrawal is ₦500");
-  }
+if(!users[id]||
+users[id].invested<=0){
+return ctx.reply(
+"❌ Invest before withdrawing"
+);
+}
 
-  userState[id] = "withdraw_details";
-  ctx.reply("Send: Name - Bank - Account Number");
+if(users[id].balance<500){
+return ctx.reply(
+"❌ Minimum withdraw is ₦500"
+);
+}
+
+userState[id]="withdraw_details";
+
+ctx.reply(
+"Send:\nName - Bank - Account Number"
+);
+
 });
 
-// ===== HANDLE WITHDRAW =====
-bot.on("text", (ctx) => {
-  const id = ctx.from.id;
+// ===== HANDLE TEXT =====
+bot.on("text",(ctx)=>{
 
-  if (userState[id] === "withdraw_details") {
-    pendingWithdrawals[id] = { details: ctx.message.text };
-    userState[id] = "withdraw_amount";
-    return ctx.reply("Enter amount:");
-  }
+const id=ctx.from.id;
 
-  if (userState[id] === "withdraw_amount") {
-    const amt = parseInt(ctx.message.text);
+if(userState[id]==="withdraw_details"){
 
-    if (users[id].balance < amt) {
-      return ctx.reply("❌ Insufficient balance");
-    }
+pendingWithdrawals[id]={
+details:ctx.message.text
+};
 
-    pendingWithdrawals[id].amount = amt;
+userState[id]="withdraw_amount";
 
-    bot.telegram.sendMessage(ADMIN_ID,
+return ctx.reply(
+"Enter amount:"
+);
+
+}
+
+if(userState[id]==="withdraw_amount"){
+
+const amt=parseInt(
+ctx.message.text
+);
+
+if(isNaN(amt)||
+amt<500){
+return ctx.reply(
+"❌ Minimum ₦500"
+);
+}
+
+if(users[id].balance<amt){
+return ctx.reply(
+"❌ Insufficient balance"
+);
+}
+
+pendingWithdrawals[id].amount=amt;
+
+bot.telegram.sendMessage(
+ADMIN_ID,
 `Withdrawal Request
 
-User: ${id}
-Amount: ₦${amt}
+User:${id}
+Amount:₦${amt}
 
-${pendingWithdrawals[id].details}`);
+${pendingWithdrawals[id].details}`
+);
 
-    ctx.reply("⏳ Awaiting approval...");
-    userState[id] = null;
-  }
+ctx.reply(
+"⏳ Awaiting approval..."
+);
+
+userState[id]=null;
+
+}
+
 });
 
-// ===== SERVER =====
-app.use(bot.webhookCallback("/bot"));
+// ===== BALANCE =====
+bot.hears(
+"💼 Balance",
+(ctx)=>{
 
-bot.telegram.setWebhook(process.env.WEBHOOK_URL);
+const id=ctx.from.id;
 
-app.get("/", (req, res) => {
-  res.send("Bot running");
+if(!users[id]){
+users[id]={
+balance:0,
+invested:0
+};
+}
+
+ctx.reply(
+`Balance: ₦${users[id].balance}
+
+Invested: ₦${users[id].invested}`
+);
+
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running"));
+// ===== REFERRAL =====
+bot.hears(
+"👥 Referral",
+(ctx)=>{
 
-process.on("uncaughtException", (err) => {
-  console.log("CRASH ERROR:", err);
+const id=ctx.from.id;
+
+ctx.reply(
+`Earn 18% referral bonus
+
+https://t.me/${ctx.botInfo.username}?start=${id}`
+);
+
 });
 
-process.on("unhandledRejection", (err) => {
-  console.log("PROMISE ERROR:", err);
-});
+// ===== POLLING MODE =====
+bot.telegram.deleteWebhook()
+.then(()=>{
+return bot.launch();
+})
+.then(()=>{
+console.log(
+"🚀 Bot running"
+);
+})
+.catch(console.error);
+
+process.once(
+"SIGINT",
+()=>bot.stop("SIGINT")
+);
+
+process.once(
+"SIGTERM",
+()=>bot.stop("SIGTERM")
+);
+
+process.on(
+"uncaughtException",
+console.error
+);
+
+process.on(
+"unhandledRejection",
+console.error
+);
