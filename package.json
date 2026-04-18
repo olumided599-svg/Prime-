@@ -1,13 +1,12 @@
 {
-  "name": "prime-vest-bot",
-  "version": "1.0.0",
-  "main": "bot.js",
-  "scripts": {
-    "start": "node bot.js"
+  "name":"prime-vest-bot",
+  "version":"1.0.0",
+  "main":"bot.js",
+  "scripts":{
+    "start":"node bot.js"
   },
-  "dependencies": {
-    "telegraf": "^4.12.2",
-    "express": "^4.18.2",
-    "dotenv": "^16.3.1"
+  "dependencies":{
+    "telegraf":"^4.12.2",
+    "dotenv":"^16.3.1"
   }
 }
